@@ -8,4 +8,4 @@ usage example:
 	Also cache non-offending image MD5s as comments so when the script is run again on this file
 	it doesn't have to check the same thing twice
 
-If you use this a bunch Google might start asking you for Capcha, in which case the script will fail until you complete the Capcha.
+If you use this a bunch Google might start giving 503, in which case the script will fail until the block expires.
