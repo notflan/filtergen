@@ -1,0 +1,4 @@
+Add support for spidering the whole board, not just catalogue.
+Add ability for adding 4chanX args to the filter entries.
+
+Fix gis-scrape.py for 2018 Google image page xpaths (currently only bestguess works)

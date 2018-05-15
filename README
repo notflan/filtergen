@@ -1,0 +1,11 @@
+Automatically generate 4chanX MD5 filter entries for images based on 
+Google reverse image search best guess keywords. Uses a slightly modified version of GISS (https://github.com/erodner/giss)
+
+usage example:
+	python filtergen.py --output dumbfrogs.txt bant "pepe frog kek"
+	
+	generates file "dumbfrogs.txt" with image MD5s matching `pepe', `frog' or `kek' on bant.
+	Also cache non-offending image MD5s as comments so when the script is run again on this file
+	it doesn't have to check the same thing twice
+
+If you use this a bunch Google might start asking you for Capcha, in which case the script will fail until you complete the Capcha.
