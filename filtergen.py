@@ -108,7 +108,7 @@ if not args.output == "stdout":
 parse_only_config(args.only,regex)
 
 if args.verbose:
-	print("Generating MD5 filters for images matching %s%s" % (("\"%s\" on /%s/" % (args.strings, args.board)) if not args.always else "(all images)", (" and regex %s"%str(regex))) if any(regex) else ""  ) 
+	print("Generating MD5 filters for images matching %s%s" % (("\"%s\" on /%s/" % (args.strings, args.board)) if not args.always else "(all images)", (" and regex %s"%str(regex)) if any(regex) else ""  )) 
 
 r = requests.get(args.api % args.board)
 
@@ -149,46 +149,54 @@ try:
 		else:
 			fp = open(args.output, "w")
 			print("#filtergen filter entries", file=fp)
-		
-	for url in image_urls: 
-		try: 
-			if args.verbose:
-				print("Working on image %s" % url)
-			if args.always:
+	try: 
+		for url in image_urls: 
+			try: 
 				if args.verbose:
-					print("Force adding %s" % url)
-				addmd5(fp, post_md5s[url], url, str(regex))
-			else:
-				raw = callbackend(url, backend_args)
-				
-				js = json.loads(raw)
-				bestguess = js[url]['bestguess']
+					print("Working on image %s" % url)
+				if args.always:
+					if args.verbose:
+						print("Force adding %s" % url)
+					addmd5(fp, post_md5s[url], url, str(regex))
+				else:
+					raw = callbackend(url, backend_args)
+					
+					js = json.loads(raw)
+					bestguess = js[url]['bestguess']
+					if args.verbose:
+						print("\tgot bestguess \"%s\"" % bestguess)
+					
+					hit=False
+					for word in words:
+						if word in bestguess:
+							md5s.append(post_md5s[url])
+							if args.verbose:
+								print("\tmatch, adding to list")
+							addmd5(fp, post_md5s[url], url, word)
+							hit = True
+							break
+					if (not args.nokeep) and not hit:
+						noaddmd5(fp, post_md5s[url])
+			except (KeyboardInterrupt):
 				if args.verbose:
-					print("\tgot bestguess \"%s\"" % bestguess)
-				
-				hit=False
-				for word in words:
-					if word in bestguess:
-						md5s.append(post_md5s[url])
-						if args.verbose:
-							print("\tmatch, adding to list")
-						addmd5(fp, post_md5s[url], url, word)
-						hit = True
-						break
-				if (not args.nokeep) and not hit:
-					noaddmd5(fp, post_md5s[url])
-		except (KeyboardInterrupt):
-			if args.verbose:
-				print("Interrupt detected")
-				break
-		except:
-			print("#error looking up image %s" % url)
-			if args.verbose:
-				traceback.print_exc()
-			if args.fatal:
-				break
-		if not args.always:
-			time.sleep(args.sleep)
+					print("Interrupt detected")
+					break
+			except:
+				print("#error looking up image %s" % url)
+				if args.verbose:
+					traceback.print_exc()
+				if args.fatal:
+					break
+			if not args.always:
+				time.sleep(args.sleep)
+	except (KeyboardInterrupt):
+		if args.verbose:
+			print("Interrupt detected")
+	except:
+		print("#error calling backends")
+		if args.verbose:
+			traceback.print_exc()
+	
 	if not fp == None:
 		fp.close()		
 	
