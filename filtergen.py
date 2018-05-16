@@ -69,6 +69,7 @@ parser = argparse.ArgumentParser(description='4chan X reverse image md5 filter g
 parser.add_argument('board', help='4chan board to spider')
 parser.add_argument('strings', help='Google image suggestion strings to filter')
 parser.add_argument('--verbose', action='store_true', help='Show all messages')
+#parser.add_argument('--daemon', action='store_true', help='Start process as daemon') TODO
 parser.add_argument('--fatal', action='store_true', help='Stop parsing images on error')
 parser.add_argument('--nokeep', action='store_true', help='Do not cache hashes that did not hit the filter')
 parser.add_argument('--force', action='store_true', help='Ignore whitelisted hashes already in output file')
@@ -81,7 +82,6 @@ parser.add_argument('--output', help='Output file or \"stdout\" to write to stdo
 
 #parser.add_argument('--full', action='store_true', help='Parse whole board, instead of just thread OPs') #TODO
 args = parser.parse_args()
-
 
 md5s = list()
 ignore=list()
