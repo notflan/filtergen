@@ -3,10 +3,12 @@ Google reverse image search best guess keywords and/or regex post matching. Uses
 (https://github.com/erodner/giss)
 
 usage example:
-	python filtergen.py --output dumbfrogs.txt bant "pepe frog kek"
+	python filtergen.py --output frogs.txt bant "pepe frog kek"
 	
-	generates file "dumbfrogs.txt" with image MD5s matching `pepe', `frog' or `kek' on bant.
+	generates file "frogs.txt" with image MD5s matching `pepe', `frog' or `kek' on bant.
 	Also cache non-offending image MD5s as comments so when the script is run again on this file
 	it doesn't have to check the same thing twice
 
 If you use this a bunch Google might start giving 503, in which case the script will fail until the block expires.
+If you complete the Capcha by manually performing a reverse image search, you can copy the cookie `GOOGLE_ABUSE_EXEMPTION' 
+and use the `--abuse' flag. (I haven't tested this yet)

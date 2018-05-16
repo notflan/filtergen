@@ -34,7 +34,7 @@ def callbackend(filename, args):
 	return output
 
 def addmd5(fp, md5, image, word):
-	strin = "/%s/ #%s (matched %s)" % (md5, image, word)
+	strin = "#%s (matched %s)\n/%s/" % (image, word, md5)
 	if fp == None:
 		print (strin)
 	else:
@@ -72,8 +72,8 @@ parser.add_argument('--verbose', action='store_true', help='Show all messages')
 parser.add_argument('--fatal', action='store_true', help='Stop parsing images on error')
 parser.add_argument('--nokeep', action='store_true', help='Do not cache hashes that did not hit the filter')
 parser.add_argument('--force', action='store_true', help='Ignore whitelisted hashes already in output file')
-parser.add_argument('--abuse', help='Google abuse exception', default=None)
-parser.add_argument('--only', help='Only run on posts that match regex conditions. Type can be any entry for posts in the 4chan JSON API, if the field does not exist, it is ignored. Or type can be "file" to load config from file. Format for config file: <field>=<regex>', nargs=2, metavar=('type', 'regex'), default=None)
+parser.add_argument('--abuse', metavar='COOKIE', help='Google abuse exception cookie', default=None)
+parser.add_argument('--only', help='Only run on posts that match regex conditions. Type can be any entry for posts in the 4chan JSON API, if the field does not exist, it is ignored. Or type can be "file" to load config from file. Format for config file: <field>=<regex>', nargs=2, metavar=('TYPE', 'REGEX'), default=None)
 parser.add_argument('--always', action='store_true', help='Always add hash to filter (useful with --only), disable image checking.')
 parser.add_argument('--sleep', help='How long to wait between Google requests (default 10 seconds). If you set this too low Google will start blocking you. This value is ignored if you pass --always', default=10, type=int)
 parser.add_argument('--api', help='Set URL of 4chan JSON API (you should probably not change this)', default='https://api.4chan.org/%s/catalog.json')
