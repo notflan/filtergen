@@ -69,10 +69,12 @@ def get_raw_html_libcurl(request_url, user_agent):
     return result_stringio.getvalue()
 
 """ HTTP request with urllib (default) """
-def get_raw_html_urllib(request_url, user_agent):
+def get_raw_html_urllib(request_url, user_agent, abuse):
     #req = urllib2.urlopen( request_url )
     opener = urllib.request.build_opener()
-    opener.addheaders = [('User-Agent', user_agent), ("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"), ("Accept-Language","en-US,en;q=0.5"), ("Accept-Encoding", "gzip, deflate"), ("Connection", "keep-alive")]
+    opener.addheaders = [('User-Agent', user_agent)]
+    if not abuse == None:
+        opener.addheaders += [('Cookie', 'GOOGLE_ABUSE_EXEMPTION=%s'%abuse)]
     response = opener.open(request_url)
     return response.read()
 
@@ -143,6 +145,7 @@ parser = argparse.ArgumentParser(description='Google image-by-image search scrap
 parser.add_argument('--plainoutput', action='store_true', help='output the results in plain format rather than')
 parser.add_argument('urls', metavar='url', help='some URLS to images', nargs='+')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--abuse', help='Google bypass abuse cookie value', default=None)
 parser.add_argument('--gisroot', help='do not change unless you know what you are doing', default='https://www.google.com/searchbyimage?&image_url=')
 parser.add_argument('--useragents', help='file with a list of user agents (GISS is using a random user agent everytime', default='useragents.txt')
 args = parser.parse_args()
@@ -183,7 +186,7 @@ for image_url in args.urls:
         print ("Search URL: ", request_url)
         print ("UA: ", user_agent)
 
-    gis_raw_result = get_raw_html_urllib( request_url, user_agent )
+    gis_raw_result = get_raw_html_urllib( request_url, user_agent, args.abuse )
 
     parse_options = libxml2.HTML_PARSE_RECOVER + libxml2.HTML_PARSE_NOERROR + libxml2.HTML_PARSE_NOWARNING
 
