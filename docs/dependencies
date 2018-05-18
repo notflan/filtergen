@@ -1,9 +1,11 @@
 python 3
 pip
 libxml2
+libffi-dev
 
 pip:
 	requests
 	nltk
-	
+	cffi
+
 run script `nltk-get.py' to download nltk resources 
