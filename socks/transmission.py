@@ -68,7 +68,6 @@ class SplitBuffer(object):
 				bt = self.ffi.cast("buffer_t*", ch)
 				ful = self.ffi.buffer(bt.data)
 				data.extend(ful)
-				print("%s" % self.ffi.string(bt.data))
 		realdata= data[:datasize]
 		if(checksum==binascii.crc32(realdata)):
 			return realdata

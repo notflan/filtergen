@@ -90,6 +90,17 @@ def _fork():
 		return 0
 	else:
 		return os.fork()
+def ssleep(sec,check):
+	if(sec<5):
+		time.sleep(5)
+	else:
+		x=0
+		while x<sec:
+			time.sleep(sec/5)
+			if(check()):
+				return True
+			x+=(sec/5)
+	return False
 def daemon_log(string,error=False):
 	print("%s: %s" %(time.strftime("%Y/%m/%d %H:%M:%S"), string), file=(sys.stderr if error else sys.stdout))
 def parse_only_config(ty, regex):
@@ -158,6 +169,7 @@ parser.add_argument('board', help='4chan board to spider')
 parser.add_argument('strings', help='Google image suggestion strings to filter')
 parser.add_argument('--verbose', action='store_true', help='Show all messages')
 parser.add_argument('--daemon', metavar='CONFIG FILE', help='Start process as daemon', default=None)
+parser.add_argument('--debug', action='store_true', help="Set debug flag to true")
 parser.add_argument('--fatal', action='store_true', help='Stop parsing images on error')
 parser.add_argument('--nokeep', action='store_true', help='Do not cache hashes that did not hit the filter')
 parser.add_argument('--force', action='store_true', help='Ignore whitelisted hashes already in output file')
@@ -171,9 +183,20 @@ parser.add_argument('--output', help='Output file or \"stdout\" to write to stdo
 #parser.add_argument('--full', action='store_true', help='Parse whole board, instead of just thread OPs') #TODO
 args = parser.parse_args()
 
+DEBUG = args.debug
+
 daemon = dict()
 daemon_sock=None
 daemon_server = None
+
+def printl(string, error=False):
+	if(daemon_server==None):
+		print(string, file=(sys.stderr if error else sys.stdout))
+	else:
+		daemon_log("[L] "+string,error)
+
+def can_break():
+	return daemon_server.running == False
 
 if not args.daemon == None:
 	okay=False
@@ -248,13 +271,13 @@ if not args.output == "stdout":
 parse_only_config(args.only,regex)
 
 if args.verbose:
-	print("Generating MD5 filters for images matching %s%s" % (("\"%s\" on /%s/" % (args.strings, args.board)) if not args.always else "(all images)", (" and regex %s"%str(regex)) if any(regex) else ""  )) 
+	printl("Generating MD5 filters for images matching %s%s" % (("\"%s\" on /%s/" % (args.strings, args.board)) if not args.always else "(all images)", (" and regex %s"%str(regex)) if any(regex) else ""  )) 
 
 def run_round():
 	r = requests.get(args.api % args.board)
 
 	if args.verbose:
-		print("Downloaded JSON from 4chan API")
+		printl("Downloaded JSON from 4chan API")
 	try:
 		pages = r.json()
 		image_urls = list()
@@ -266,7 +289,7 @@ def run_round():
 			backend_args = ["--abuse", args.abuse]
 		
 		if args.verbose:
-			print("Parsed json successfully")
+			printl("Parsed json successfully")
 		for page in pages:
 			for thread in page['threads']: 
 				if("ext" in thread): #ignore no file posts
@@ -275,13 +298,13 @@ def run_round():
 							rurl = imageurl(args.board, thread)
 							image_urls.append(rurl)
 							post_md5s[rurl] = thread['md5']
-						#elif args.verbose:
-						#	print("Ignoring post %d: Doesn't satisfy conditions" % thread['no']) #TOO verbose
+						elif args.verbose:
+							printl("Ignoring post %d: Doesn't satisfy conditions" % thread['no']) #TOO verbose?
 						
 					elif args.verbose:
-						print("Ignoring post no %d: Already cached" % thread['no'])
+						printl("Ignoring post no %d: Already cached" % thread['no'])
 				elif args.verbose:
-					print("Ignoring post no. %d: No image" % thread['no'])
+					printl("Ignoring post no. %d: No image" % thread['no'])
 				
 		#subprocess.call(['python', "gis-scrape.py"] + image_urls)
 		if not args.output == "stdout":
@@ -294,10 +317,10 @@ def run_round():
 			for url in image_urls: 
 				try: 
 					if args.verbose:
-						print("Working on image %s" % url)
+						printl("Working on image %s" % url)
 					if args.always:
 						if args.verbose:
-							print("Force adding %s" % url)
+							printl("Force adding %s" % url)
 						md5s.append(post_md5s[url])
 						addmd5(fp, post_md5s[url], url, str(regex))
 					else:
@@ -306,14 +329,14 @@ def run_round():
 						js = json.loads(raw)
 						bestguess = js[url]['bestguess']
 						if args.verbose:
-							print("\tgot bestguess \"%s\"" % bestguess)
+							printl("\tgot bestguess \"%s\"" % bestguess)
 						
 						hit=False
 						for word in words:
 							if word in bestguess:
 								md5s.append(post_md5s[url])
 								if args.verbose:
-									print("\tmatch, adding to list")
+									printl("\tmatch, adding to list")
 								addmd5(fp, post_md5s[url], url, word)
 								hit = True
 								break
@@ -322,23 +345,30 @@ def run_round():
 							noaddmd5(fp, post_md5s[url])
 				except (KeyboardInterrupt):
 					if args.verbose:
-						print("Interrupt detected")
+						printl("Interrupt detected")
 						break
 				except:
-					print("#error looking up image %s" % url)
+					printl("#error looking up image %s" % url)
 					if args.verbose:
 						traceback.print_exc()
 					if args.fatal:
 						return False
-				if not args.always:
-					time.sleep(args.sleep)
+				if not daemon_server:
+					time.sleep(args.sleep)					
+				else:
+					ssleep(args.sleep, can_break)
+					if daemon_server.running==False:
+						break;
+				
 		except (KeyboardInterrupt):
 			if args.verbose:
 				print("Interrupt detected")
 		except:
-			print("#error calling backends")
+			print("#error calling backend")
 			if args.verbose:
 				traceback.print_exc()
+			if daemon_server!=None:
+				ssleep(args.sleep, can_break)
 		
 		if not fp == None:
 			fp.close()		

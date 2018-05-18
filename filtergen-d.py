@@ -11,7 +11,7 @@ from cffi import FFI
 import binascii
 
 def parse_resp(resp):
-	print("Read resp %s" % resp)
+	print("%s" % resp) #TODO
 
 parser = argparse.ArgumentParser(description='filtergen daemon controller')
 parser.add_argument('socket', help="Unix socket to write to")
