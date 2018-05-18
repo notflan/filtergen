@@ -6,6 +6,75 @@ import time
 from cffi import FFI
 import binascii
 
+class SplitBuffer(object):
+	def __init__(self):
+		self.ffi = FFI()
+		self.buffersize = 4096
+		self.ffi.cdef("""
+			typedef struct {
+				unsigned char data[%d];
+			} buffer_t;
+			typedef struct {
+				unsigned int crc32;
+				int size;
+			} bufsize_t;
+		""" % self.buffersize)
+	def _sendsize(self, socket, size, crc):
+		i = self.ffi.new("bufsize_t*")
+		i.size = size
+		i.crc32 = crc
+		socket.send(self.ffi.buffer(i))
+	def _recvsize(self, socket):
+		data = socket.recv(self.ffi.sizeof("bufsize_t"))
+		if not data or len(data)!=self.ffi.sizeof("bufsize_t"):
+			print("Could not read data size", file=sys.stderr)
+			return None
+		else:
+			buf = self.ffi.from_buffer(data)
+			if self.ffi.sizeof(buf) != self.ffi.sizeof("bufsize_t"):
+				print("Could not deserialise data size", file=sys.stderr)
+				return None
+			else:
+				i = self.ffi.cast("bufsize_t*", buf)
+				return (i.size,i.crc32)
+
+	def send(self, socket, data):
+		datasize = len(data)		
+		self._sendsize(socket, datasize, binascii.crc32(data))
+
+		bi = self.ffi.new("buffer_t*")
+		i =0
+		while i<datasize:
+			buf = data[i:min(datasize, i+self.buffersize)]
+			i+=len(buf)
+
+			tb = self.ffi.from_buffer(buf)
+			self.ffi.memmove(bi.data, tb, self.ffi.sizeof(tb))
+			socket.send(self.ffi.buffer(bi))
+	def recv(self, socket):
+		datasize,checksum = self._recvsize(socket)
+		data = bytearray()		
+
+		bi = self.ffi.new("buffer_t*")
+		i=0
+		while i<datasize:
+			raw = socket.recv(self.ffi.sizeof("buffer_t"))
+			if not raw or len(raw)!=self.ffi.sizeof("buffer_t"):
+				print("Could not read data chunk (at %d)"%i, file=sys.stderr)
+				return None
+			else:
+				i+=len(raw)
+				ch = self.ffi.from_buffer(raw)
+				bt = self.ffi.cast("buffer_t*", ch)
+				ful = self.ffi.buffer(bt.data)
+				data.extend(ful)
+				print("%s" % self.ffi.string(bt.data))
+		realdata= data[:datasize]
+		if(checksum==binascii.crc32(realdata)):
+			return realdata
+		else:
+			print("Checksum mismatch (expected %x, got %x)" %(checksum, binascii.crc32(realdata)))
+			return None
 class Command(object):
 	def __init__(self):
 		self.ffi = FFI()

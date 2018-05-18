@@ -10,6 +10,7 @@ import threading
 import binascii
 from cffi import FFI
 from socks.transmission import Command
+from socks.transmission import SplitBuffer
 import select
 from subprocess import Popen, PIPE
 # command line parsing
@@ -23,6 +24,8 @@ except ImportError:
 #import urllib.request
 #import urllib.error
 import requests
+
+DEBUG=False
 
 def get_url(request_url):
 	opener = urllib.request.build_opener()
@@ -82,6 +85,11 @@ def parse_daemon_config(fp, en):
 		en["timeout"] = "5"
 	
 	return True
+def _fork():
+	if DEBUG:
+		return 0
+	else:
+		return os.fork()
 def daemon_log(string,error=False):
 	print("%s: %s" %(time.strftime("%Y/%m/%d %H:%M:%S"), string), file=(sys.stderr if error else sys.stdout))
 def parse_only_config(ty, regex):
@@ -103,6 +111,7 @@ class Daemon(threading.Thread):
 		self.accept=False
 		self.on_get=None
 		self.trans = Command()
+		self.large = SplitBuffer()
 		threading.Thread.__init__(self)
 	def send(self, string):
 		self.trans.send(self.socket,string)
@@ -117,10 +126,16 @@ class Daemon(threading.Thread):
 				daemon_log("Shutdown recieved")
 				self.running=False
 				return True
-			if "get" in fv:
-				daemon_log("Request for data")
-				if self.on_get!=None:
-					self.send(self.on_get())
+			if "back" in fv:
+				#we need to send data back
+				back = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+				back.connect(fv["back"])
+				if "get" in fv:
+					daemon_log("Request for data")
+					if self.on_get!=None:
+						self.large.send(back, self.on_get().encode("utf-8"))
+				back.close()
+					
 			return True
 	def run(self):
 		while self.running:
@@ -142,7 +157,7 @@ parser = argparse.ArgumentParser(description='4chan X reverse image md5 filter g
 parser.add_argument('board', help='4chan board to spider')
 parser.add_argument('strings', help='Google image suggestion strings to filter')
 parser.add_argument('--verbose', action='store_true', help='Show all messages')
-parser.add_argument('--daemon', metavar='CONFIG FILE', help='Start process as daemon', default=None) # TODO: forking and stuff
+parser.add_argument('--daemon', metavar='CONFIG FILE', help='Start process as daemon', default=None)
 parser.add_argument('--fatal', action='store_true', help='Stop parsing images on error')
 parser.add_argument('--nokeep', action='store_true', help='Do not cache hashes that did not hit the filter')
 parser.add_argument('--force', action='store_true', help='Ignore whitelisted hashes already in output file')
@@ -179,14 +194,15 @@ if not args.daemon == None:
 		else:
 			error = "#error starting daemon: config file does not exist"
 	if okay:
-		pid = os.fork()
+		pid = _fork()
 		if not pid == 0:
 			print("Process forked to background: PID %d" % pid)
 			sys.exit(0)
 		else:
 			#daemon stuff
-			sys.stdout = open(daemon["log"], "w")
-			sys.stderr = open(daemon["errorlog"], "w")
+			if not DEBUG:
+				sys.stdout = open(daemon["log"], "w")
+				sys.stderr = open(daemon["errorlog"], "w")
 			
 			if os.path.exists(daemon["socket"]):
 				os.remove(daemon["socket"])
@@ -195,6 +211,7 @@ if not args.daemon == None:
 					daemon_exit(1)
 			daemon_sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 			daemon_sock.bind(daemon["socket"])
+
 			daemon_log("Bound to \"%s\"" % daemon["socket"])
 			
 			daemon_sock.setblocking(0)
@@ -281,6 +298,7 @@ def run_round():
 					if args.always:
 						if args.verbose:
 							print("Force adding %s" % url)
+						md5s.append(post_md5s[url])
 						addmd5(fp, post_md5s[url], url, str(regex))
 					else:
 						raw = callbackend(url, backend_args)
@@ -333,7 +351,10 @@ def run_round():
 	return True
 
 def _on_get():
-	return json.dumps(md5s)
+	gd = dict()
+	gd["matched"] = md5s
+	gd["ignored"] = ignore
+	return json.dumps(gd)
 
 if(daemon_server==None):
 	run_round()

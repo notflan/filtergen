@@ -2,5 +2,7 @@ Add support for spidering the whole board, not just catalogue.
 Add ability for adding 4chanX args to the filter entries.
 Add back more useragents
 
+Add "status" for daemon
+
 Fix gis-scrape.py for 2018 Google image page xpaths (currently only bestguess works)
 Move xpaths into text file to make changing them easier

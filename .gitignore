@@ -1,3 +1,6 @@
 test.txt
 *.log
 *.sock
+*.pyc
+socks/__pycache__/
+test/
