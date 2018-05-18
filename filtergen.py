@@ -7,6 +7,9 @@ import socket
 import time
 import re
 import threading
+import binascii
+from cffi import FFI
+from socks.transmission import Command
 import select
 from subprocess import Popen, PIPE
 # command line parsing
@@ -99,32 +102,12 @@ class Daemon(threading.Thread):
 		self.running= True
 		self.accept=False
 		self.on_get=None
+		self.trans = Command()
 		threading.Thread.__init__(self)
 	def send(self, string):
-		#self.socket.send( (str(len(string))+"\0").encode("ascii"))
-		self.socket.send(string.encode("ascii"))
+		self.trans.send(self.socket,string)
 	def recv(self):
-		#buf=""
-		#try:
-		#	while len(buf)<1 or buf[-1] != "\0":
-		#		buf+=self.socket.recv(1).decode("ascii")
-		#		
-		#	num = int(buf[:-1])
-		#	if(num>0):
-		#		return self.socket.recv(num).decode("ascii")
-		#	else:
-		#		return None
-		#except:
-		#	daemon_log("Could not read buffer %s"%buf,True)
-		#buf=""
-		#tb=None
-		#while True:
-		#	tb = self.socket.recv(1024)
-		#	if not tb:
-		#		break
-		#	buf+= tb.decode("ascii")
-		return self.socket.recv(1024).decode("ascii")
-		#return buf
+		return self.trans.recv(self.socket)
 	def parse(self, data):
 		fv = json.loads(data)
 		if not fv:
@@ -361,6 +344,8 @@ else:
 	while(daemon_server.running):
 		if not run_round():
 			daemon_server.running=False
+		#time.sleep(10)
+		#daemon_server.running=False
 	daemon_server.join()
 	daemon_log("Closing socket end exiting")
 	daemon_sock.close()
