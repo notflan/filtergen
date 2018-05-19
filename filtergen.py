@@ -120,7 +120,7 @@ class Daemon(threading.Thread):
 		self.opt = opt
 		self.running= True
 		self.accept=False
-		self.on_get=None
+		self.on=None
 		self.trans = Command()
 		self.large = SplitBuffer()
 		threading.Thread.__init__(self)
@@ -133,20 +133,22 @@ class Daemon(threading.Thread):
 		if not fv:
 			daemon_log("Invalid data formatting")
 		else:
-			if "shutdown" in fv:
-				daemon_log("Shutdown recieved")
-				self.running=False
-				return True
 			if "back" in fv:
 				#we need to send data back
 				back = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 				back.connect(fv["back"])
+				bdata = dict()
 				if "get" in fv:
 					daemon_log("Request for data")
-					if self.on_get!=None:
-						self.large.send(back, self.on_get().encode("utf-8"))
+					if self.on!=None:
+						bdata["get"] = self.on("get")
+				self.large.send(back, json.dumps(bdata).encode("utf-8"))
 				back.close()
-					
+
+			if "shutdown" in fv:
+				daemon_log("Shutdown recieved")
+				self.running=False
+				return True	
 			return True
 	def run(self):
 		while self.running:
@@ -384,12 +386,16 @@ def _on_get():
 	gd = dict()
 	gd["matched"] = md5s
 	gd["ignored"] = ignore
-	return json.dumps(gd)
+	return gd
+
+def d_on(string):
+	if string == "get":
+		return _on_get()
 
 if(daemon_server==None):
 	run_round()
 else:
-	daemon_server.on_get = _on_get 
+	daemon_server.on = d_on 
 	daemon_server.accept=True
 	
 	while(daemon_server.running):
