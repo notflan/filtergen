@@ -33,27 +33,12 @@ def get_url(request_url):
 	response = opener.open(request_url)
 	return response.read()
 	
-def imageurl(board, post):
-	return "https://i.4cdn.org/%s/%s%s" % (board, post['tim'], post['ext'])
-	
 def callbackend(filename, args):
 	p = Popen(['python', 'gis-scrape.py', filename]+args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 	output, err = p.communicate()
 	rc = p.returncode
 	return output
 
-def addmd5(fp, md5, image, word):
-	strin = "#%s (matched %s)\n/%s/" % (image, word, md5)
-	if fp == None:
-		print (strin)
-	else:
-		print(strin, file=fp)
-def noaddmd5(fp, md5):
-	strin = "#!%s" % (md5)
-	if fp == None:
-		print (strin)
-	else:
-		print(strin, file=fp)
 
 def only_okay(only, js):
 	if not any(only):
@@ -177,8 +162,9 @@ parser.add_argument('--nokeep', action='store_true', help='Do not cache hashes t
 parser.add_argument('--force', action='store_true', help='Ignore whitelisted hashes already in output file')
 parser.add_argument('--abuse', metavar='COOKIE', help='Google abuse exception cookie', default=None)
 parser.add_argument('--only', help='Only run on posts that match regex conditions. Type can be any entry for posts in the 4chan JSON API, if the field does not exist, it is ignored. Or type can be "file" to load config from file. Format for config file: <field>=<regex>', nargs=2, metavar=('TYPE', 'REGEX'), default=None)
-parser.add_argument('--always', action='store_true', help='Always add hash to filter (useful with --only), disable image checking.')
-parser.add_argument('--sleep', help='How long to wait between Google requests (default 10 seconds). If you set this too low Google will start blocking you. This value is ignored if you pass --always', default=10, type=int)
+parser.add_argument('--always', action='store_true', help='Always add hash to filter (useful with --only), disable image checking')
+parser.add_argument('--sleep', help='How long to wait between Google requests (default 10 seconds). If you set this too low Google will start blocking you', default=10, type=int)
+parser.add_argument('--baseurl', default="https://i.4cdn.org/%s/", help="Base URL of image (default \'https://i.4cdn.org/%%s/\')")
 parser.add_argument('--api', help='Set URL of 4chan JSON API (you should probably not change this)', default='https://api.4chan.org/%s/catalog.json')
 parser.add_argument('--output', help='Output file or \"stdout\" to write to stdout. If an MD5 entry is already in the output file, it will not be parsed again', default='stdout')
 
@@ -190,6 +176,9 @@ DEBUG = args.debug
 daemon = dict()
 daemon_sock=None
 daemon_server = None
+
+def imageurl(board, post):
+	return (args.baseurl+"%s%s") % (board, post['tim'], post['ext'])
 
 def printl(string, error=False):
 	if(daemon_server==None):
@@ -252,6 +241,22 @@ md5s = list()
 ignore=list()
 regex=dict()
 words = args.strings.split()
+
+
+def addmd5(fp, md5, image, word):
+	strin = "#%s (matched %s)\n/%s/" % (image, word, md5)
+	md5s.append(md5)
+	if fp == None:
+		print (strin)
+	else:
+		print(strin, file=fp)
+def noaddmd5(fp, md5):
+	strin = "#!%s" % (md5)
+	ignore.append(md5)
+	if fp == None:
+		print (strin)
+	else:
+		print(strin, file=fp)
 
 if not args.output == "stdout":
 	if os.path.isfile(args.output):
@@ -323,7 +328,6 @@ def run_round():
 					if args.always:
 						if args.verbose:
 							printl("Force adding %s" % url)
-						md5s.append(post_md5s[url])
 						addmd5(fp, post_md5s[url], url, str(regex))
 					else:
 						raw = callbackend(url, backend_args)
@@ -336,14 +340,12 @@ def run_round():
 						hit=False
 						for word in words:
 							if word in bestguess:
-								md5s.append(post_md5s[url])
 								if args.verbose:
 									printl("\tmatch, adding to list")
 								addmd5(fp, post_md5s[url], url, word)
 								hit = True
 								break
 						if (not args.nokeep) and not hit:
-							ignore.append(post_md5s[url])
 							noaddmd5(fp, post_md5s[url])
 				except (KeyboardInterrupt):
 					if args.verbose:

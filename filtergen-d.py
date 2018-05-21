@@ -10,26 +10,47 @@ from socks.transmission import SplitBuffer
 from cffi import FFI
 import binascii
 
-def parse_resp(resp):
-	print("%s" % resp) #TODO
 
 parser = argparse.ArgumentParser(description='filtergen daemon controller')
 parser.add_argument('socket', help="Unix socket to write to")
+parser.add_argument('--raw', action='store_true', help= "Print raw output only")
 parser.add_argument("--shutdown", action='store_true', help="Tell daemon to shut down")
-parser.add_argument("--get", action='store_true', help="Get filter data")
+parser.add_argument("--get", metavar="FILENAME", help="Get filter data, if FILENAME is \"stdout\" write to stdout", default=None)
 args = parser.parse_args()
 
 trans = Command()
 large=  SplitBuffer()
 coms = dict()
+getfn = None
+
+def write_get_str(ar, fl):
+	for line in ar["matched"]:
+		print(line, file=fl)
+	for line in ar["ignored"]:
+		print("#!"+line, file=fl)
+
+def parse_resp(js):
+	if args.raw:
+		print(js)
+	else:
+		resp = json.loads(js)
+		if "get" in resp:
+			vl = resp["get"]
+			if getfn!=None:
+				with open(getfn, "w") as f:
+					write_get_str(resp["get"], f)
+			else:
+				write_get_str(resp["get"], sys.stdout)
 
 cli_sock =  tempfile._get_default_tempdir()+"/"+next(tempfile._get_candidate_names())
 
 if args.shutdown:
 	coms["shutdown"] = True
 
-if args.get:
+if args.get!=None:
 	coms["back"] = cli_sock
+	if args.get!="stdout":
+		getfn = args.get
 	coms["get"] = True
 
 if os.path.exists(args.socket):
