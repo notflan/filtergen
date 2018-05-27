@@ -5,6 +5,7 @@ import traceback
 import json
 import socket
 import time
+import datetime
 import re
 import threading
 import binascii
@@ -103,6 +104,7 @@ class Daemon(threading.Thread):
 	def __init__(self, socket, opt):
 		self.socket = socket
 		self.opt = opt
+		self.tstart=time.time()
 		self.running= True
 		self.accept=False
 		self.on=None
@@ -113,6 +115,12 @@ class Daemon(threading.Thread):
 		self.trans.send(self.socket,string)
 	def recv(self):
 		return self.trans.recv(self.socket)
+	def info(self):
+		ifo=dict()
+		ifo["uptime"] = time.time()-self.tstart
+		ifo["message"] = "Filtergen daemon version 0.5"
+		
+		return ifo
 	def parse(self, data):
 		fv = json.loads(data)
 		if not fv:
@@ -123,6 +131,7 @@ class Daemon(threading.Thread):
 				back = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 				back.connect(fv["back"])
 				bdata = dict()
+				bdata["info"] = self.info();
 				if "get" in fv:
 					daemon_log("Request for data")
 					if self.on!=None:

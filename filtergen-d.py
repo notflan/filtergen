@@ -3,6 +3,7 @@ import tempfile
 import json
 import socket
 import sys
+import datetime
 import time
 import argparse
 from socks.transmission import Command
@@ -15,6 +16,7 @@ parser = argparse.ArgumentParser(description='filtergen daemon controller')
 parser.add_argument('socket', help="Unix socket to write to")
 parser.add_argument('--raw', action='store_true', help= "Print raw output only")
 parser.add_argument("--shutdown", action='store_true', help="Tell daemon to shut down")
+parser.add_argument("--quiet", action='store_true', help="Do not display daemon information")
 parser.add_argument("--get", metavar="FILENAME", help="Get filter data, if FILENAME is \"stdout\" write to stdout", default=None)
 args = parser.parse_args()
 
@@ -34,6 +36,9 @@ def parse_resp(js):
 		print(js)
 	else:
 		resp = json.loads(js)
+		if not args.quiet and "info" in resp:
+			ifo = resp["info"]
+			print("%s\r\n\tUptime: %s" % (ifo["message"], str(datetime.timedelta(seconds=ifo["uptime"]))))
 		if "get" in resp:
 			vl = resp["get"]
 			if getfn!=None:
